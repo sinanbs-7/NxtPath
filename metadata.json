@@ -1,0 +1,6 @@
+{
+  "name": "Nxtpath",
+  "description": "Your next ride is already on the road. Real-time rural student transport matching.",
+  "requestFramePermissions": ["geolocation", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

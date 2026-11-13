@@ -1,0 +1,624 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Public operational profile and preferences for a student, driver, or teacher.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "maxLength": 128,
+          "description": "Firebase Auth UID of the user."
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "First name or short display name."
+        },
+        "role": {
+          "type": "string",
+          "enum": ["student", "driver", "teacher"],
+          "description": "Primary role chosen by the user."
+        },
+        "language": {
+          "type": "string",
+          "enum": ["en", "kn", "hi"],
+          "description": "Preferred UI language code."
+        },
+        "verifiedDriver": {
+          "type": "boolean",
+          "description": "Whether a teacher or admin has verified this driver."
+        },
+        "savedSchoolName": {
+          "type": "string",
+          "maxLength": 140,
+          "description": "Name of saved school destination."
+        },
+        "savedSchoolAddress": {
+          "type": "string",
+          "maxLength": 240,
+          "description": "Formatted address of saved school."
+        },
+        "savedSchoolLat": {
+          "type": "number",
+          "description": "Latitude of saved school."
+        },
+        "savedSchoolLng": {
+          "type": "number",
+          "description": "Longitude of saved school."
+        },
+        "onboardingComplete": {
+          "type": "boolean",
+          "description": "Whether initial welcome onboarding has been completed."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation server timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update server timestamp."
+        }
+      },
+      "required": ["uid", "displayName", "role", "language", "verifiedDriver", "onboardingComplete", "createdAt", "updatedAt"]
+    },
+    "UserPrivateContact": {
+      "title": "UserPrivateContact",
+      "description": "Isolated PII document for user email or phone number.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "maxLength": 128
+        },
+        "email": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "updatedAt"]
+    },
+    "Vehicle": {
+      "title": "Vehicle",
+      "description": "Vehicle registered by a driver for offering spare seats.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "maxLength": 128
+        },
+        "vehicleType": {
+          "type": "string",
+          "enum": ["govt_bus", "private_bus", "school_van", "milk_van", "ration_truck", "tractor", "auto", "other"]
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "defaultSeats": {
+          "type": "number"
+        },
+        "verified": {
+          "type": "boolean"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerId", "vehicleType", "label", "defaultSeats", "verified", "createdAt", "updatedAt"]
+    },
+    "Trip": {
+      "title": "Trip",
+      "description": "Scheduled or live vehicle trip offering spare seats.",
+      "type": "object",
+      "properties": {
+        "driverId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "maxLength": 128
+        },
+        "driverName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "driverVerified": {
+          "type": "boolean"
+        },
+        "vehicleType": {
+          "type": "string",
+          "enum": ["govt_bus", "private_bus", "school_van", "milk_van", "ration_truck", "tractor", "auto", "other"]
+        },
+        "originName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "originLat": {
+          "type": "number"
+        },
+        "originLng": {
+          "type": "number"
+        },
+        "destinationName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "destinationLat": {
+          "type": "number"
+        },
+        "destinationLng": {
+          "type": "number"
+        },
+        "distanceMeters": {
+          "type": "number"
+        },
+        "durationSeconds": {
+          "type": "number"
+        },
+        "seatsFree": {
+          "type": "number"
+        },
+        "seatsTotal": {
+          "type": "number"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["scheduled", "live", "completed", "disrupted", "unavailable"]
+        },
+        "isDrill": {
+          "type": "boolean"
+        },
+        "routeGeometry": {
+          "type": "array",
+          "description": "List of { lat, lng } coordinate maps along the OSRM driving route."
+        },
+        "cumulativeDurations": {
+          "type": "array",
+          "description": "Cumulative seconds along route vertices."
+        },
+        "departureTime": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["driverId", "driverName", "driverVerified", "vehicleType", "originName", "originLat", "originLng", "destinationName", "destinationLat", "destinationLng", "distanceMeters", "durationSeconds", "seatsFree", "seatsTotal", "status", "routeGeometry", "cumulativeDurations", "departureTime", "createdAt", "updatedAt"]
+    },
+    "LivePosition": {
+      "title": "LivePosition",
+      "description": "Real-time GPS coordinates written by the active trip driver.",
+      "type": "object",
+      "properties": {
+        "tripId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "maxLength": 128
+        },
+        "driverId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "maxLength": 128
+        },
+        "lat": {
+          "type": "number"
+        },
+        "lng": {
+          "type": "number"
+        },
+        "accuracy": {
+          "type": "number"
+        },
+        "heading": {
+          "type": "number"
+        },
+        "speed": {
+          "type": "number"
+        },
+        "isDrill": {
+          "type": "boolean"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["tripId", "driverId", "lat", "lng", "accuracy", "updatedAt"]
+    },
+    "SeatRequest": {
+      "title": "SeatRequest",
+      "description": "Student seat request for a specific trip.",
+      "type": "object",
+      "properties": {
+        "tripId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "maxLength": 128
+        },
+        "studentId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "maxLength": 128
+        },
+        "driverId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "maxLength": 128
+        },
+        "studentName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "pickupLat": {
+          "type": "number"
+        },
+        "pickupLng": {
+          "type": "number"
+        },
+        "destinationName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "destinationLat": {
+          "type": "number"
+        },
+        "destinationLng": {
+          "type": "number"
+        },
+        "arriveBy": {
+          "type": "string",
+          "maxLength": 10
+        },
+        "examAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "isDrill": {
+          "type": "boolean"
+        },
+        "rideCode": {
+          "type": "string",
+          "maxLength": 6
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "accepted", "declined", "completed"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["tripId", "studentId", "driverId", "studentName", "pickupLat", "pickupLng", "destinationName", "status", "createdAt", "updatedAt"]
+    },
+    "DemandPin": {
+      "title": "DemandPin",
+      "description": "Waiting student pin placed when no vehicle matches.",
+      "type": "object",
+      "properties": {
+        "studentId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "maxLength": 128
+        },
+        "lat": {
+          "type": "number"
+        },
+        "lng": {
+          "type": "number"
+        },
+        "destinationName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "destinationLat": {
+          "type": "number"
+        },
+        "destinationLng": {
+          "type": "number"
+        },
+        "arriveBy": {
+          "type": "string",
+          "maxLength": 10
+        },
+        "examAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "isDrill": {
+          "type": "boolean"
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "offeredByDriverId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "maxLength": 128
+        },
+        "offeredByDriverName": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "offeredTripId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "maxLength": 128
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["studentId", "lat", "lng", "destinationName", "active", "createdAt", "updatedAt"]
+    },
+    "TripReport": {
+      "title": "TripReport",
+      "description": "Student report that a scheduled bus did not arrive.",
+      "type": "object",
+      "properties": {
+        "tripId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "maxLength": 128
+        },
+        "reporterId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "maxLength": 128
+        },
+        "stopLat": {
+          "type": "number"
+        },
+        "stopLng": {
+          "type": "number"
+        },
+        "reason": {
+          "type": "string",
+          "enum": ["bus_no_show", "breakdown", "full"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["tripId", "reporterId", "stopLat", "stopLng", "reason", "createdAt"]
+    },
+    "AppNotification": {
+      "title": "AppNotification",
+      "description": "In-app notification for seat updates or disruption Plan B.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "maxLength": 128
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "body": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 400
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["seat_update", "disruption", "verification", "reallocation"]
+        },
+        "read": {
+          "type": "boolean"
+        },
+        "actionStatus": {
+          "type": "string",
+          "enum": ["pending", "accepted", "declined"]
+        },
+        "tripId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "maxLength": 128
+        },
+        "clusterPlace": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "studentCount": {
+          "type": "number"
+        },
+        "isDrill": {
+          "type": "boolean"
+        },
+        "respondedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["userId", "title", "body", "kind", "read", "createdAt"]
+    },
+    "AdminRecord": {
+      "title": "AdminRecord",
+      "description": "Trusted admin allowlist document.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "maxLength": 128
+        },
+        "grantedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "grantedAt"]
+    },
+    "BlockedZone": {
+      "title": "BlockedZone",
+      "description": "Flooded or impassable road zone that vehicles must avoid.",
+      "type": "object",
+      "properties": {
+        "center": {
+          "type": "object",
+          "description": "{ lat, lng } coordinate map."
+        },
+        "radiusMeters": {
+          "type": "number"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 140
+        },
+        "createdBy": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "maxLength": 128
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "isDrill": {
+          "type": "boolean"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["center", "radiusMeters", "label", "createdBy", "active", "createdAt", "updatedAt"]
+    },
+    "CrisisPlan": {
+      "title": "CrisisPlan",
+      "description": "Deterministic priority routing plan and FCFS comparison snapshot.",
+      "type": "object",
+      "properties": {
+        "createdBy": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "maxLength": 128
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "isDrill": {
+          "type": "boolean"
+        },
+        "assignments": {
+          "type": "array"
+        },
+        "unreachable": {
+          "type": "array"
+        },
+        "reallocations": {
+          "type": "array"
+        },
+        "kpis": {
+          "type": "object"
+        },
+        "fcfsKpis": {
+          "type": "object"
+        },
+        "validationErrors": {
+          "type": "array"
+        }
+      },
+      "required": ["createdBy", "createdAt", "assignments", "unreachable", "reallocations", "kpis", "fcfsKpis", "validationErrors"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "User operational profile and preferences."
+    },
+    "/users/{userId}/private/{docId}": {
+      "schema": { "$ref": "#/entities/UserPrivateContact" },
+      "description": "Private PII contact data isolated to the owner and admins."
+    },
+    "/vehicles/{vehicleId}": {
+      "schema": { "$ref": "#/entities/Vehicle" },
+      "description": "Vehicles registered by drivers."
+    },
+    "/trips/{tripId}": {
+      "schema": { "$ref": "#/entities/Trip" },
+      "description": "Scheduled and live trips offering seats."
+    },
+    "/livePositions/{tripId}": {
+      "schema": { "$ref": "#/entities/LivePosition" },
+      "description": "Real-time GPS positions keyed by tripId."
+    },
+    "/seatRequests/{requestId}": {
+      "schema": { "$ref": "#/entities/SeatRequest" },
+      "description": "Student seat requests on trips."
+    },
+    "/demandPins/{pinId}": {
+      "schema": { "$ref": "#/entities/DemandPin" },
+      "description": "Student waiting pins when no ride matches."
+    },
+    "/reports/{reportId}": {
+      "schema": { "$ref": "#/entities/TripReport" },
+      "description": "Missed bus / disruption reports."
+    },
+    "/notifications/{notificationId}": {
+      "schema": { "$ref": "#/entities/AppNotification" },
+      "description": "User-targeted notifications."
+    },
+    "/admins/{adminId}": {
+      "schema": { "$ref": "#/entities/AdminRecord" },
+      "description": "Admin role registry."
+    },
+    "/blockedZones/{zoneId}": {
+      "schema": { "$ref": "#/entities/BlockedZone" },
+      "description": "Active flooded or blocked road zones."
+    },
+    "/crisisPlans/{planId}": {
+      "schema": { "$ref": "#/entities/CrisisPlan" },
+      "description": "Computed Exam Day Crisis routing plans and FCFS comparisons."
+    }
+  }
+}

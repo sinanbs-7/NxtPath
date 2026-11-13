@@ -1,0 +1,185 @@
+@import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
+
+:root {
+  --nx-asphalt: #1F2A2E;
+  --nx-highway-green: #0E6B4E;
+  --nx-highway-green-dark: #0A523B;
+  --nx-school-yellow: #FFC20E;
+  --nx-signal-red: #D7352B;
+  --nx-mist: #F2F5F3;
+  --nx-white: #FFFFFF;
+  --nx-map-blue: #2F6FDE;
+  --nx-border: #D5DDD8;
+  --nx-muted: #526066;
+}
+
+@theme {
+  --color-asphalt: #1F2A2E;
+  --color-highway: #0E6B4E;
+  --color-highway-dark: #0A523B;
+  --color-school: #FFC20E;
+  --color-signal: #D7352B;
+  --color-mist: #F2F5F3;
+  --color-mapblue: #2F6FDE;
+  --font-display: "Archivo", "Noto Sans Kannada", "Noto Sans Devanagari", system-ui, sans-serif;
+  --font-sans: "Atkinson Hyperlegible", "Noto Sans Kannada", "Noto Sans Devanagari", system-ui, sans-serif;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    background-color: var(--nx-mist);
+    color: var(--nx-asphalt);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  h1,
+  h2,
+  h3,
+  .font-sign {
+    font-family: var(--font-display);
+    font-variation-settings: "wdth" 92;
+    letter-spacing: -0.01em;
+  }
+
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible {
+    outline: 3px solid var(--nx-school-yellow);
+    outline-offset: 2px;
+  }
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Roadside ticket stub perforated top/bottom motif */
+.ticket-perforation {
+  background-image: radial-gradient(circle at 8px 0, var(--nx-mist) 5px, transparent 5.5px);
+  background-size: 16px 8px;
+  background-repeat: repeat-x;
+}
+
+/* Pulsing blue GPS location marker */
+.nx-gps-dot {
+  position: relative;
+  width: 20px;
+  height: 20px;
+}
+
+.nx-gps-core {
+  position: absolute;
+  inset: 3px;
+  border-radius: 9999px;
+  background-color: #2F6FDE;
+  border: 2.5px solid #FFFFFF;
+  box-shadow: 0 1px 4px rgba(31, 42, 46, 0.35);
+}
+
+.nx-gps-pulse {
+  position: absolute;
+  inset: -6px;
+  border-radius: 9999px;
+  background-color: rgba(47, 111, 222, 0.28);
+  animation: nx-pulse-ring 2.2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+@keyframes nx-pulse-ring {
+  0% {
+    transform: scale(0.55);
+    opacity: 0.9;
+  }
+  80% {
+    transform: scale(1.65);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.65);
+    opacity: 0;
+  }
+}
+
+@keyframes nx-disrupted-pulse {
+  0%,
+  100% {
+    opacity: 0.92;
+  }
+  50% {
+    opacity: 0.38;
+  }
+}
+
+@keyframes nx-ribbon-draw {
+  from {
+    stroke-dashoffset: 30;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.nx-disrupted-ribbon {
+  stroke-dasharray: 10 8;
+  animation: nx-disrupted-pulse 1.4s ease-in-out infinite;
+}
+
+.nx-recovery-ribbon {
+  stroke-dasharray: 24 6;
+  animation: nx-ribbon-draw 1s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nx-gps-pulse,
+  .nx-disrupted-ribbon,
+  .nx-recovery-ribbon {
+    animation: none;
+  }
+
+  .nx-gps-pulse {
+    opacity: 0.35;
+    transform: scale(1.1);
+  }
+
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+/* Keep Leaflet controls clean and aligned with roadside signage */
+.leaflet-container {
+  font-family: var(--font-sans);
+  background-color: #E7ECE9;
+}
+
+.leaflet-tile-pane {
+  filter: saturate(0.65) contrast(0.95);
+}
+
+.nx-blocked-zone-circle {
+  fill: url(#nx-flood-hatch) !important;
+  fill-opacity: 0.78 !important;
+}
+
+.leaflet-control-attribution {
+  font-size: 11px !important;
+  background: rgba(255, 255, 255, 0.88) !important;
+  color: #1F2A2E !important;
+  padding: 2px 6px !important;
+}
+
+.leaflet-control-attribution a {
+  color: #0E6B4E !important;
+}

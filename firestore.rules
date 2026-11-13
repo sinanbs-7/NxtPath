@@ -1,0 +1,544 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Hardened Global Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isAdminEmail() {
+      return isSignedIn()
+        && request.auth.token.email_verified == true
+        && request.auth.token.email == 'sinanmohd710@gmail.com';
+    }
+
+    // Verified admin role check (read-only access across operational collections)
+    function isVerifiedAdmin() {
+      return isSignedIn()
+        && request.auth.token.email_verified == true
+        && (
+          request.auth.token.email == 'sinanmohd710@gmail.com' ||
+          exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+        );
+    }
+
+    function isValidVehicleType(t) {
+      return t in ['govt_bus', 'private_bus', 'school_van', 'milk_van', 'ration_truck', 'tractor', 'auto', 'other'];
+    }
+
+    // 3. Entity Validation Blueprints
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'displayName', 'role', 'language', 'verifiedDriver', 'onboardingComplete', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'displayName', 'role', 'language', 'verifiedDriver', 'onboardingComplete', 'savedSchoolName', 'savedSchoolAddress', 'savedSchoolLat', 'savedSchoolLng', 'createdAt', 'updatedAt'])
+        && isValidId(data.uid)
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 80
+        && data.role in ['student', 'driver', 'teacher']
+        && data.language in ['en', 'kn', 'hi']
+        && data.verifiedDriver is bool
+        && data.onboardingComplete is bool
+        && (!('savedSchoolName' in data) || (data.savedSchoolName is string && data.savedSchoolName.size() <= 140))
+        && (!('savedSchoolAddress' in data) || (data.savedSchoolAddress is string && data.savedSchoolAddress.size() <= 240))
+        && (!('savedSchoolLat' in data) || (data.savedSchoolLat is number && data.savedSchoolLat >= -90 && data.savedSchoolLat <= 90))
+        && (!('savedSchoolLng' in data) || (data.savedSchoolLng is number && data.savedSchoolLng >= -180 && data.savedSchoolLng <= 180))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidUserPrivate(data) {
+      return data.keys().hasAll(['uid', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'email', 'updatedAt'])
+        && isValidId(data.uid)
+        && (!('email' in data) || (data.email is string && data.email.size() <= 160))
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidVehicle(data) {
+      return data.keys().hasAll(['ownerId', 'vehicleType', 'label', 'defaultSeats', 'verified', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['ownerId', 'vehicleType', 'label', 'defaultSeats', 'verified', 'createdAt', 'updatedAt'])
+        && isValidId(data.ownerId)
+        && isValidVehicleType(data.vehicleType)
+        && data.label is string && data.label.size() >= 1 && data.label.size() <= 80
+        && data.defaultSeats is int && data.defaultSeats >= 1 && data.defaultSeats <= 80
+        && data.verified is bool
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidTrip(data) {
+      return data.keys().hasAll([
+          'driverId', 'driverName', 'driverVerified', 'vehicleType',
+          'originName', 'originLat', 'originLng',
+          'destinationName', 'destinationLat', 'destinationLng',
+          'distanceMeters', 'durationSeconds',
+          'seatsFree', 'seatsTotal', 'status',
+          'routeGeometry', 'cumulativeDurations', 'departureTime',
+          'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'driverId', 'driverName', 'driverVerified', 'vehicleType',
+          'originName', 'originLat', 'originLng',
+          'destinationName', 'destinationLat', 'destinationLng',
+          'distanceMeters', 'durationSeconds',
+          'seatsFree', 'seatsTotal', 'status', 'isDrill',
+          'routeGeometry', 'cumulativeDurations', 'departureTime',
+          'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.driverId)
+        && data.driverName is string && data.driverName.size() >= 1 && data.driverName.size() <= 80
+        && data.driverVerified is bool
+        && isValidVehicleType(data.vehicleType)
+        && data.originName is string && data.originName.size() >= 1 && data.originName.size() <= 160
+        && data.originLat is number && data.originLat >= -90 && data.originLat <= 90
+        && data.originLng is number && data.originLng >= -180 && data.originLng <= 180
+        && data.destinationName is string && data.destinationName.size() >= 1 && data.destinationName.size() <= 160
+        && data.destinationLat is number && data.destinationLat >= -90 && data.destinationLat <= 90
+        && data.destinationLng is number && data.destinationLng >= -180 && data.destinationLng <= 180
+        && data.distanceMeters is number && data.distanceMeters >= 0 && data.distanceMeters <= 2000000
+        && data.durationSeconds is number && data.durationSeconds >= 0 && data.durationSeconds <= 86400
+        && data.seatsTotal is int && data.seatsTotal >= 1 && data.seatsTotal <= 80
+        && data.seatsFree is int && data.seatsFree >= 0 && data.seatsFree <= data.seatsTotal
+        && data.status in ['scheduled', 'live', 'completed', 'disrupted', 'unavailable']
+        && (!('isDrill' in data) || data.isDrill is bool)
+        && data.routeGeometry is list && data.routeGeometry.size() >= 2 && data.routeGeometry.size() <= 2000
+        && data.routeGeometry[0] is map
+        && data.cumulativeDurations is list && data.cumulativeDurations.size() >= 2 && data.cumulativeDurations.size() <= 2000
+        && data.cumulativeDurations[0] is number
+        && data.departureTime is timestamp
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidLivePosition(data) {
+      return data.keys().hasAll(['tripId', 'driverId', 'lat', 'lng', 'accuracy', 'updatedAt'])
+        && data.keys().hasOnly(['tripId', 'driverId', 'lat', 'lng', 'accuracy', 'heading', 'speed', 'isDrill', 'updatedAt'])
+        && isValidId(data.tripId)
+        && isValidId(data.driverId)
+        && data.lat is number && data.lat >= -90 && data.lat <= 90
+        && data.lng is number && data.lng >= -180 && data.lng <= 180
+        && data.accuracy is number && data.accuracy >= 0 && data.accuracy <= 10000
+        && (!('heading' in data) || (data.heading is number && data.heading >= 0 && data.heading <= 360))
+        && (!('speed' in data) || (data.speed is number && data.speed >= 0 && data.speed <= 200))
+        && (!('isDrill' in data) || data.isDrill is bool)
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidSeatRequest(data) {
+      return data.keys().hasAll(['tripId', 'studentId', 'driverId', 'studentName', 'pickupLat', 'pickupLng', 'destinationName', 'status', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly([
+          'tripId', 'studentId', 'driverId', 'studentName', 'pickupLat', 'pickupLng',
+          'destinationName', 'destinationLat', 'destinationLng', 'arriveBy', 'examAt', 'isDrill',
+          'rideCode', 'status', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.tripId)
+        && isValidId(data.studentId)
+        && isValidId(data.driverId)
+        && data.studentName is string && data.studentName.size() >= 1 && data.studentName.size() <= 80
+        && data.pickupLat is number && data.pickupLat >= -90 && data.pickupLat <= 90
+        && data.pickupLng is number && data.pickupLng >= -180 && data.pickupLng <= 180
+        && data.destinationName is string && data.destinationName.size() >= 1 && data.destinationName.size() <= 160
+        && (!('destinationLat' in data) || (data.destinationLat is number && data.destinationLat >= -90 && data.destinationLat <= 90))
+        && (!('destinationLng' in data) || (data.destinationLng is number && data.destinationLng >= -180 && data.destinationLng <= 180))
+        && (!('arriveBy' in data) || (data.arriveBy is string && data.arriveBy.size() <= 10))
+        && (!('examAt' in data) || data.examAt is timestamp)
+        && (!('isDrill' in data) || data.isDrill is bool)
+        && (!('rideCode' in data) || (data.rideCode is string && data.rideCode.size() == 4 && data.rideCode.matches('^[0-9]{4}$')))
+        && data.status in ['pending', 'accepted', 'declined', 'completed']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidDemandPin(data) {
+      return data.keys().hasAll(['studentId', 'lat', 'lng', 'destinationName', 'active', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly([
+          'studentId', 'lat', 'lng', 'destinationName', 'destinationLat', 'destinationLng',
+          'arriveBy', 'examAt', 'isDrill', 'active',
+          'offeredByDriverId', 'offeredByDriverName', 'offeredTripId', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.studentId)
+        && data.lat is number && data.lat >= -90 && data.lat <= 90
+        && data.lng is number && data.lng >= -180 && data.lng <= 180
+        && data.destinationName is string && data.destinationName.size() >= 1 && data.destinationName.size() <= 160
+        && (!('destinationLat' in data) || (data.destinationLat is number && data.destinationLat >= -90 && data.destinationLat <= 90))
+        && (!('destinationLng' in data) || (data.destinationLng is number && data.destinationLng >= -180 && data.destinationLng <= 180))
+        && (!('arriveBy' in data) || (data.arriveBy is string && data.arriveBy.size() <= 10))
+        && (!('examAt' in data) || data.examAt is timestamp)
+        && (!('isDrill' in data) || data.isDrill is bool)
+        && data.active is bool
+        && (!('offeredByDriverId' in data) || isValidId(data.offeredByDriverId))
+        && (!('offeredByDriverName' in data) || (data.offeredByDriverName is string && data.offeredByDriverName.size() >= 1 && data.offeredByDriverName.size() <= 80))
+        && (!('offeredTripId' in data) || isValidId(data.offeredTripId))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidReport(data) {
+      return data.keys().hasAll(['tripId', 'reporterId', 'stopLat', 'stopLng', 'reason', 'createdAt'])
+        && data.keys().hasOnly(['tripId', 'reporterId', 'stopLat', 'stopLng', 'reason', 'createdAt'])
+        && isValidId(data.tripId)
+        && isValidId(data.reporterId)
+        && data.stopLat is number && data.stopLat >= -90 && data.stopLat <= 90
+        && data.stopLng is number && data.stopLng >= -180 && data.stopLng <= 180
+        && data.reason in ['bus_no_show', 'breakdown', 'full']
+        && data.createdAt is timestamp;
+    }
+
+    function isValidNotification(data) {
+      return data.keys().hasAll(['userId', 'title', 'body', 'kind', 'read', 'createdAt'])
+        && data.keys().hasOnly([
+          'userId', 'title', 'body', 'kind', 'read',
+          'actionStatus', 'tripId', 'clusterPlace', 'studentCount', 'isDrill', 'respondedAt',
+          'createdAt'
+        ])
+        && isValidId(data.userId)
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 120
+        && data.body is string && data.body.size() >= 1 && data.body.size() <= 400
+        && data.kind in ['seat_update', 'disruption', 'verification', 'reallocation']
+        && data.read is bool
+        && (!('actionStatus' in data) || data.actionStatus in ['pending', 'accepted', 'declined'])
+        && (!('tripId' in data) || isValidId(data.tripId))
+        && (!('clusterPlace' in data) || (data.clusterPlace is string && data.clusterPlace.size() <= 160))
+        && (!('studentCount' in data) || (data.studentCount is int && data.studentCount >= 0 && data.studentCount <= 500))
+        && (!('isDrill' in data) || data.isDrill is bool)
+        && (!('respondedAt' in data) || data.respondedAt is timestamp)
+        && data.createdAt is timestamp;
+    }
+
+    function isValidBlockedZone(data) {
+      return data.keys().hasAll(['center', 'radiusMeters', 'label', 'createdBy', 'active', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['center', 'radiusMeters', 'label', 'createdBy', 'active', 'isDrill', 'createdAt', 'updatedAt'])
+        && data.center is map
+        && data.center.keys().hasAll(['lat', 'lng'])
+        && data.center.keys().hasOnly(['lat', 'lng'])
+        && data.center.lat is number && data.center.lat >= -90 && data.center.lat <= 90
+        && data.center.lng is number && data.center.lng >= -180 && data.center.lng <= 180
+        && data.radiusMeters is number && data.radiusMeters >= 20 && data.radiusMeters <= 50000
+        && data.label is string && data.label.size() >= 1 && data.label.size() <= 140
+        && isValidId(data.createdBy)
+        && data.active is bool
+        && (!('isDrill' in data) || data.isDrill is bool)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidCrisisPlan(data) {
+      return data.keys().hasAll(['createdBy', 'createdAt', 'assignments', 'unreachable', 'reallocations', 'kpis', 'fcfsKpis', 'validationErrors'])
+        && data.keys().hasOnly(['createdBy', 'createdAt', 'isDrill', 'assignments', 'unreachable', 'reallocations', 'kpis', 'fcfsKpis', 'validationErrors'])
+        && isValidId(data.createdBy)
+        && data.createdAt is timestamp
+        && (!('isDrill' in data) || data.isDrill is bool)
+        && data.assignments is list && data.assignments.size() <= 1000
+        && (data.assignments.size() == 0 || data.assignments[0] is map)
+        && data.unreachable is list && data.unreachable.size() <= 1000
+        && (data.unreachable.size() == 0 || data.unreachable[0] is map)
+        && data.reallocations is list && data.reallocations.size() <= 500
+        && (data.reallocations.size() == 0 || data.reallocations[0] is map)
+        && data.kpis is map
+        && data.fcfsKpis is map
+        && data.validationErrors is list && data.validationErrors.size() <= 500
+        && (data.validationErrors.size() == 0 || data.validationErrors[0] is string);
+    }
+
+    // 4. Collection Rules
+    // Users can only read/write their own profile; verified admins can read and verify drivers.
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isVerifiedAdmin());
+      allow list: if isAdminEmail() && resource.data.uid is string;
+      allow create: if isSignedIn() && isValidId(userId) && isOwner(userId)
+        && isValidUser(incoming())
+        && incoming().uid == request.auth.uid
+        && incoming().verifiedDriver == false
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isSignedIn() && isValidId(userId)
+        && isValidUser(incoming())
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          (isOwner(userId)
+            && incoming().verifiedDriver == existing().verifiedDriver
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'displayName', 'role', 'language', 'onboardingComplete',
+              'savedSchoolName', 'savedSchoolAddress', 'savedSchoolLat', 'savedSchoolLng', 'updatedAt'
+            ])) ||
+          (isVerifiedAdmin()
+            && incoming().diff(existing()).affectedKeys().hasOnly(['verifiedDriver', 'updatedAt']))
+        );
+      allow delete: if isValidId(userId) && isOwner(userId);
+
+      match /private/{docId} {
+        allow get: if isValidId(userId) && isValidId(docId) && (isOwner(userId) || isVerifiedAdmin());
+        allow list: if isValidId(userId) && (isOwner(userId) || isAdminEmail()) && resource.data.uid == userId;
+        allow create: if isSignedIn() && isValidId(userId) && isValidId(docId) && isOwner(userId)
+          && isValidUserPrivate(incoming())
+          && incoming().uid == request.auth.uid
+          && incoming().updatedAt == request.time;
+        allow update: if isSignedIn() && isValidId(userId) && isValidId(docId) && isOwner(userId)
+          && isValidUserPrivate(incoming())
+          && incoming().uid == existing().uid
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly(['email', 'updatedAt']);
+        allow delete: if isValidId(userId) && isValidId(docId) && isOwner(userId);
+      }
+    }
+
+    match /vehicles/{vehicleId} {
+      allow get: if isSignedIn() && isValidId(vehicleId) && (existing().ownerId == request.auth.uid || isVerifiedAdmin());
+      allow list: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdminEmail());
+      allow create: if isSignedIn() && isValidId(vehicleId) && isValidVehicle(incoming())
+        && incoming().ownerId == request.auth.uid
+        && incoming().verified == false
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isSignedIn() && isValidId(vehicleId) && isValidVehicle(incoming())
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && existing().ownerId == request.auth.uid
+        && incoming().verified == existing().verified
+        && incoming().diff(existing()).affectedKeys().hasOnly(['vehicleType', 'label', 'defaultSeats', 'updatedAt']);
+      allow delete: if isValidId(vehicleId) && existing().ownerId == request.auth.uid;
+    }
+
+    // Drivers can only write their own active trip data; verified admins can break/restore trips and manage isDrill trips.
+    match /trips/{tripId} {
+      allow get: if isValidId(tripId);
+      allow list: if isSignedIn() && (
+        resource.data.status in ['scheduled', 'live', 'disrupted', 'unavailable'] ||
+        resource.data.driverId == request.auth.uid ||
+        isAdminEmail()
+      );
+      allow create: if isSignedIn() && isValidId(tripId) && isValidTrip(incoming())
+        && incoming().status in ['scheduled', 'live']
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && (
+          (incoming().driverId == request.auth.uid
+            && !('isDrill' in incoming() && incoming().isDrill == true)
+            && (
+              (exists(/databases/$(database)/documents/users/$(request.auth.uid))
+                && incoming().driverVerified == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.verifiedDriver) ||
+              (!exists(/databases/$(database)/documents/users/$(request.auth.uid))
+                && incoming().driverVerified == false)
+            )) ||
+          (isVerifiedAdmin() && 'isDrill' in incoming() && incoming().isDrill == true)
+        );
+      allow update: if isSignedIn() && isValidId(tripId) && isValidTrip(incoming())
+        && incoming().driverId == existing().driverId
+        && incoming().seatsTotal == existing().seatsTotal
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          (existing().driverId == request.auth.uid
+            && existing().status in ['scheduled', 'live']
+            && incoming().driverVerified == existing().driverVerified
+            && incoming().diff(existing()).affectedKeys().hasOnly(['seatsFree', 'status', 'updatedAt'])) ||
+          (isVerifiedAdmin()
+            && existing().status in ['scheduled', 'live', 'unavailable']
+            && incoming().diff(existing()).affectedKeys().hasOnly(['driverVerified', 'status', 'updatedAt'])) ||
+          (isVerifiedAdmin()
+            && 'isDrill' in existing() && existing().isDrill == true
+            && 'isDrill' in incoming() && incoming().isDrill == true)
+        );
+      allow delete: if isSignedIn() && isValidId(tripId) && isVerifiedAdmin()
+        && 'isDrill' in existing() && existing().isDrill == true;
+    }
+
+    // Drivers can only write/delete livePosition for their own active trip; admins can write/delete isDrill positions;
+    // unauthenticated single-doc get lets parents track a shared tripId link without logging in.
+    match /livePositions/{tripId} {
+      allow get: if isValidId(tripId);
+      allow list: if isSignedIn() && resource.data.tripId is string;
+      allow create: if isSignedIn() && isValidId(tripId) && isValidLivePosition(incoming())
+        && incoming().tripId == tripId
+        && incoming().updatedAt == request.time
+        && exists(/databases/$(database)/documents/trips/$(tripId))
+        && get(/databases/$(database)/documents/trips/$(tripId)).data.status in ['scheduled', 'live']
+        && (
+          (incoming().driverId == request.auth.uid
+            && get(/databases/$(database)/documents/trips/$(tripId)).data.driverId == request.auth.uid) ||
+          (isVerifiedAdmin() && 'isDrill' in incoming() && incoming().isDrill == true)
+        );
+      allow update: if isSignedIn() && isValidId(tripId) && isValidLivePosition(incoming())
+        && incoming().tripId == existing().tripId
+        && incoming().driverId == existing().driverId
+        && incoming().updatedAt == request.time
+        && (
+          (existing().driverId == request.auth.uid
+            && get(/databases/$(database)/documents/trips/$(tripId)).data.status in ['scheduled', 'live']
+            && incoming().diff(existing()).affectedKeys().hasOnly(['lat', 'lng', 'accuracy', 'heading', 'speed', 'updatedAt'])) ||
+          (isVerifiedAdmin() && 'isDrill' in existing() && existing().isDrill == true)
+        );
+      allow delete: if isSignedIn() && isValidId(tripId) && (
+        existing().driverId == request.auth.uid ||
+        (isVerifiedAdmin() && 'isDrill' in existing() && existing().isDrill == true)
+      );
+    }
+
+    // Users can only read/write their own ride requests (and trip driver can accept/decline requests for their trip);
+    // verified admins can manage isDrill requests.
+    match /seatRequests/{requestId} {
+      allow get: if isSignedIn() && isValidId(requestId) && (
+        existing().studentId == request.auth.uid ||
+        existing().driverId == request.auth.uid ||
+        isVerifiedAdmin()
+      );
+      allow list: if isSignedIn() && (
+        resource.data.studentId == request.auth.uid ||
+        resource.data.driverId == request.auth.uid ||
+        isAdminEmail()
+      );
+      allow create: if isSignedIn() && isValidId(requestId) && isValidSeatRequest(incoming())
+        && incoming().status == 'pending'
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && exists(/databases/$(database)/documents/trips/$(incoming().tripId))
+        && get(/databases/$(database)/documents/trips/$(incoming().tripId)).data.driverId == incoming().driverId
+        && get(/databases/$(database)/documents/trips/$(incoming().tripId)).data.status in ['scheduled', 'live']
+        && (
+          incoming().studentId == request.auth.uid ||
+          (isVerifiedAdmin() && 'isDrill' in incoming() && incoming().isDrill == true)
+        );
+      allow update: if isSignedIn() && isValidId(requestId) && isValidSeatRequest(incoming())
+        && incoming().tripId == existing().tripId
+        && incoming().studentId == existing().studentId
+        && incoming().driverId == existing().driverId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && !(existing().status in ['declined', 'completed'])
+        && (
+          (existing().driverId == request.auth.uid
+            && ((existing().status == 'pending' && incoming().status in ['accepted', 'declined'])
+              || (existing().status == 'accepted' && incoming().status == 'completed'))
+            && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'rideCode', 'updatedAt'])) ||
+          (existing().studentId == request.auth.uid
+            && ((existing().status == 'pending' && incoming().status == 'declined')
+              || (existing().status == 'accepted' && incoming().status in ['declined', 'completed']))
+            && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])) ||
+          (isVerifiedAdmin() && 'isDrill' in existing() && existing().isDrill == true)
+        );
+      allow delete: if isSignedIn() && isValidId(requestId) && (
+        existing().studentId == request.auth.uid ||
+        (isVerifiedAdmin() && 'isDrill' in existing() && existing().isDrill == true)
+      );
+    }
+
+    match /demandPins/{pinId} {
+      allow get: if isSignedIn() && isValidId(pinId);
+      allow list: if isSignedIn() && (resource.data.active == true || resource.data.studentId == request.auth.uid || isAdminEmail());
+      allow create: if isSignedIn() && isValidId(pinId) && isValidDemandPin(incoming())
+        && incoming().active == true
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && (
+          incoming().studentId == request.auth.uid ||
+          (isVerifiedAdmin() && 'isDrill' in incoming() && incoming().isDrill == true)
+        );
+      allow update: if isSignedIn() && isValidId(pinId) && isValidDemandPin(incoming())
+        && incoming().studentId == existing().studentId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          (existing().studentId == request.auth.uid
+            && incoming().diff(existing()).affectedKeys().hasOnly(['active', 'destinationName', 'updatedAt'])) ||
+          (existing().active == true
+            && 'offeredByDriverId' in incoming()
+            && 'offeredTripId' in incoming()
+            && incoming().offeredByDriverId == request.auth.uid
+            && exists(/databases/$(database)/documents/trips/$(incoming().offeredTripId))
+            && get(/databases/$(database)/documents/trips/$(incoming().offeredTripId)).data.driverId == request.auth.uid
+            && get(/databases/$(database)/documents/trips/$(incoming().offeredTripId)).data.status in ['scheduled', 'live']
+            && incoming().diff(existing()).affectedKeys().hasOnly(['offeredByDriverId', 'offeredByDriverName', 'offeredTripId', 'updatedAt'])) ||
+          (isVerifiedAdmin() && 'isDrill' in existing() && existing().isDrill == true)
+        );
+      allow delete: if isSignedIn() && isValidId(pinId) && (
+        existing().studentId == request.auth.uid ||
+        (isVerifiedAdmin() && 'isDrill' in existing() && existing().isDrill == true)
+      );
+    }
+
+    match /reports/{reportId} {
+      allow get: if isSignedIn() && isValidId(reportId) && (existing().reporterId == request.auth.uid || isVerifiedAdmin());
+      allow list: if isSignedIn() && (resource.data.tripId is string || resource.data.reporterId == request.auth.uid || isAdminEmail());
+      allow create: if isSignedIn() && isValidId(reportId) && isValidReport(incoming())
+        && incoming().reporterId == request.auth.uid
+        && incoming().createdAt == request.time
+        && exists(/databases/$(database)/documents/trips/$(incoming().tripId));
+      allow update: if false;
+      allow delete: if isSignedIn() && isValidId(reportId) && existing().reporterId == request.auth.uid;
+    }
+
+    match /notifications/{notificationId} {
+      allow get: if isSignedIn() && isValidId(notificationId) && (existing().userId == request.auth.uid || isVerifiedAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdminEmail());
+      allow create: if isSignedIn() && isValidId(notificationId) && isValidNotification(incoming())
+        && incoming().createdAt == request.time
+        && (incoming().userId == request.auth.uid || isVerifiedAdmin());
+      allow update: if isSignedIn() && isValidId(notificationId) && isValidNotification(incoming())
+        && incoming().userId == existing().userId
+        && incoming().createdAt == existing().createdAt
+        && existing().userId == request.auth.uid
+        && incoming().diff(existing()).affectedKeys().hasOnly(['read', 'actionStatus', 'respondedAt']);
+      allow delete: if isSignedIn() && isValidId(notificationId) && (
+        existing().userId == request.auth.uid ||
+        (isVerifiedAdmin() && 'isDrill' in existing() && existing().isDrill == true)
+      );
+    }
+
+    match /admins/{adminId} {
+      allow get: if isSignedIn() && isValidId(adminId) && (isOwner(adminId) || isVerifiedAdmin());
+      allow list: if isAdminEmail() && resource.data.uid is string;
+      allow write: if false;
+    }
+
+    match /blockedZones/{zoneId} {
+      allow get: if isSignedIn() && isValidId(zoneId);
+      allow list: if isSignedIn() && (resource.data.active == true || isAdminEmail());
+      allow create: if isSignedIn() && isValidId(zoneId) && isVerifiedAdmin()
+        && isValidBlockedZone(incoming())
+        && incoming().createdBy == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isSignedIn() && isValidId(zoneId) && isVerifiedAdmin()
+        && isValidBlockedZone(incoming())
+        && incoming().createdBy == existing().createdBy
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['active', 'label', 'radiusMeters', 'center', 'updatedAt']);
+      allow delete: if isSignedIn() && isValidId(zoneId) && isVerifiedAdmin();
+    }
+
+    match /crisisPlans/{planId} {
+      allow get: if isSignedIn() && isValidId(planId) && isVerifiedAdmin();
+      allow list: if isAdminEmail() && resource.data.createdAt is timestamp;
+      allow create: if isSignedIn() && isValidId(planId) && isVerifiedAdmin()
+        && isValidCrisisPlan(incoming())
+        && incoming().createdBy == request.auth.uid
+        && incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if isSignedIn() && isValidId(planId) && isVerifiedAdmin()
+        && 'isDrill' in existing() && existing().isDrill == true;
+    }
+  }
+}
